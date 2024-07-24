@@ -15,10 +15,11 @@ This tool is ideal for users who need to work with extensive logs, data dumps, o
 - **Cross-Platform**: Runs on Windows, macOS, and Linux.
 
 ## Screenshots
+ 
+<p align="center"><img src="https://raw.githubusercontent.com/openconcerto/GigaNotePad/main/screenshot1.png" width="829"></p>
+ 
 
-![Screenshot1](./screenshot1.png)
+## Requirements
 
-## Screenshots
-
-Requirement : Java 11 or superior
+Java 11 or more recent
 
