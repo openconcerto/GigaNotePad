@@ -1,9 +1,5 @@
 # GigaNotePad
 
-[![GPLv3 License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
-## Overview
-
 **GigaNotePad** is an open-source notepad application designed to handle exceptionally large text files, up to 2 gigabytes in size, even if all the text is contained in a single line. 
 This tool is ideal for users who need to work with extensive logs, data dumps, or any large text files that typically exceed the capabilities of standard text editors.
 
