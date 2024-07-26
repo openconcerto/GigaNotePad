@@ -8,7 +8,41 @@
 
     <property name="main-class"  value="org.openconcerto.editor.EditorFrame"/>
 
+ <dependencies>
+        <!-- Other dependencies -->
 
+        <!-- JUnit 5 API for writing tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.9.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit 5 Engine for running tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.9.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M5</version>
+                <configuration>
+                    <includes>
+                        <include>test/*.java</include>
+                         
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
     <target name="clean">
         <delete dir="${build.dir}"/>
