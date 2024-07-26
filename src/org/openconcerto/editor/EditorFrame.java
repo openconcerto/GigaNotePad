@@ -4,6 +4,10 @@ import java.awt.Adjustable;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FileDialog;
+import java.awt.Font;
+import java.awt.FontFormatException;
+import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Image;
@@ -24,13 +28,13 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.prefs.Preferences;
 
 import javax.swing.JCheckBoxMenuItem;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -42,8 +46,8 @@ import javax.swing.JScrollBar;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.WindowConstants;
+import javax.swing.plaf.FontUIResource;
 
 import org.apache.tika.parser.html.charsetdetector.PreScanner;
 import org.openconcerto.editor.Document.LineSeparator;
@@ -54,6 +58,8 @@ import org.openconcerto.editor.actions.UndoAbleAction;
 
 import com.ibm.icu.text.CharsetDetector;
 import com.ibm.icu.text.CharsetMatch;
+
+import cleanlaf.CleanLF;
 
 public class EditorFrame extends JFrame {
 
@@ -206,7 +212,15 @@ public class EditorFrame extends JFrame {
 
         this.menubar.add(mAbout);
         this.setJMenuBar(this.menubar);
+        SwingThrottle tUpdate = new SwingThrottle(300, new Runnable() {
 
+            @Override
+            public void run() {
+                setSelectionInfo(EditorFrame.this.editor.getSelectionInfo());
+                updateScrollbar();
+
+            }
+        });
         this.editor.addListener(new TextEditorListener() {
 
             @Override
@@ -232,9 +246,7 @@ public class EditorFrame extends JFrame {
                 }
                 textColumn.append(" ");
                 EditorFrame.this.labelCurrentColumn.setText(textColumn.toString());
-                setSelectionInfo(EditorFrame.this.editor.getSelectionInfo());
-
-                updateScrollbar();
+                tUpdate.execute();
             }
 
             @Override
@@ -262,16 +274,21 @@ public class EditorFrame extends JFrame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooser fileChooser = new JFileChooser();
+                FileDialog dDialog = new FileDialog(EditorFrame.this, "Select a file to load", FileDialog.LOAD);
+                dDialog.setDirectory(APPNAME);
+
                 String str = Preferences.userRoot().get(LAST_PATH, System.getProperty("user.home"));
                 if (str != null && new File(str).exists()) {
-                    fileChooser.setCurrentDirectory(new File(str));
+                    dDialog.setDirectory(new File(str).getAbsolutePath());
                 } else {
-                    fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                    dDialog.setDirectory(new File(System.getProperty("user.home")).getAbsolutePath());
                 }
-                int result = fileChooser.showOpenDialog(EditorFrame.this);
-                if (result == JFileChooser.APPROVE_OPTION) {
-                    final File fileToLoad = fileChooser.getSelectedFile();
+
+                dDialog.setVisible(true);
+                File[] files = dDialog.getFiles();
+                if (files.length > 0) {
+
+                    final File fileToLoad = files[0];
                     try {
                         if (EditorFrame.this.editor.getDocument().isEmpty() && EditorFrame.this.file == null) {
                             load(fileToLoad);
@@ -281,7 +298,6 @@ public class EditorFrame extends JFrame {
                         }
                     } catch (Exception ex) {
                         ex.printStackTrace();
-                        // TODO: handle exception
                         JOptionPane.showMessageDialog(EditorFrame.this, "Error while loading " + fileToLoad.getAbsolutePath() + "\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
@@ -480,7 +496,9 @@ public class EditorFrame extends JFrame {
             @Override
             public void adjustmentValueChanged(AdjustmentEvent e) {
                 if (e.getValueIsAdjusting()) {
-                    EditorFrame.this.editor.scrollToTexline(e.getValue());
+                    final int value = e.getValue();
+
+                    EditorFrame.this.editor.scrollToTexline(value);
                 }
 
             }
@@ -579,29 +597,29 @@ public class EditorFrame extends JFrame {
     }
 
     public void saveAs() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Specify a file to save");
+        FileDialog dDialog = new FileDialog(EditorFrame.this, "Specify a file to save", FileDialog.SAVE);
+
         if (this.file != null) {
-            fileChooser.setCurrentDirectory(this.file.getParentFile());
+            dDialog.setDirectory(this.file.getParentFile().getAbsolutePath());
         } else {
             String str = Preferences.userRoot().get(LAST_PATH, System.getProperty("user.home"));
             if (str != null && new File(str).exists()) {
-                fileChooser.setCurrentDirectory(new File(str));
+                dDialog.setDirectory(new File(str).getAbsolutePath());
             } else {
-                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                dDialog.setDirectory(new File(System.getProperty("user.home")).getAbsolutePath());
             }
         }
         if (this.file != null) {
-            fileChooser.setSelectedFile(new File(this.file.getName()));
+            dDialog.setFile(new File(this.file.getName()).getAbsolutePath());
         } else {
-            fileChooser.setSelectedFile(new File("New document.txt"));
+            dDialog.setFile("New document.txt");
         }
-
-        int userSelection = fileChooser.showSaveDialog(this);
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File fileToSave = fileChooser.getSelectedFile();
+        dDialog.setVisible(true);
+        String fileName = dDialog.getFile();
+        if (fileName != null) {
+            File fileToSave = new File(dDialog.getDirectory(), fileName);
             if (fileToSave.exists()) {
-                int answer = JOptionPane.showConfirmDialog(fileChooser, fileToSave.getName() + " already exists.\nDo you want to replace it?", "Confirm save", JOptionPane.YES_NO_OPTION,
+                int answer = JOptionPane.showConfirmDialog(EditorFrame.this, fileToSave.getName() + " already exists.\nDo you want to replace it?", "Confirm save", JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE);
                 if (answer != JOptionPane.YES_OPTION) {
                     return;
@@ -617,6 +635,9 @@ public class EditorFrame extends JFrame {
     public void setFindPanelVisible(boolean b) {
         this.findPanel.setVisible(b);
         this.findPanel.grabFocus();
+        if (!b) {
+            this.editor.updateHighLights(null);
+        }
         doLayout();
     }
 
@@ -680,7 +701,7 @@ public class EditorFrame extends JFrame {
             try (final BufferedInputStream bIn = new BufferedInputStream(new FileInputStream(fileToLoad))) {
                 byte[] bytes = bIn.readNBytes(10000);
                 final String txt = new String(bytes, StandardCharsets.UTF_8);
-                if (txt.substring(0, 100).toLowerCase().contains("encoding=\"utf-8\"")) {
+                if (txt.substring(0, Math.min(txt.length(), 100)).toLowerCase().contains("encoding=\"utf-8\"")) {
                     detectedCharset = StandardCharsets.UTF_8;
                 }
                 if (detectedCharset == null) {
@@ -801,6 +822,7 @@ public class EditorFrame extends JFrame {
                             JOptionPane.showMessageDialog(EditorFrame.this, "Error while loading file :\n" + file.getAbsolutePath() + "\nErreur: " + e.getMessage());
                             setMenuEnabled(true);
                         }
+
                     });
                 }
             }
@@ -890,12 +912,38 @@ public class EditorFrame extends JFrame {
             public void run() {
 
                 try {
-                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
+                    // Clean LAF
+                    UIManager.setLookAndFeel(new CleanLF());
+
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
 
-                EditorFrame f = new EditorFrame();
+                try {
+                    // Apply better font
+                    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+
+                    Font font = Font.createFont(Font.TRUETYPE_FONT, CleanLF.class.getResourceAsStream("NotoSans-Regular.ttf"));
+
+                    ge.registerFont(font);
+
+                    FontUIResource f = new FontUIResource(font.getName(), Font.PLAIN, 12);
+                    Enumeration<Object> keys = UIManager.getDefaults().keys();
+                    while (keys.hasMoreElements()) {
+                        Object key = keys.nextElement();
+                        Object value = UIManager.get(key);
+
+                        if (value instanceof javax.swing.plaf.FontUIResource) {
+                            UIManager.put(key, f);
+                        }
+
+                    }
+
+                } catch (FontFormatException | IOException e) {
+                    e.printStackTrace();
+                }
+
+                final EditorFrame f = new EditorFrame();
 
                 f.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
                 f.setMinimumSize(new Dimension(320, 200));
