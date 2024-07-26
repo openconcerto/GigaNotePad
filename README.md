@@ -1,4 +1,5 @@
 # GigaNotePad
+[![Java CI with Maven](https://github.com/openconcerto/GigaNotePad/actions/workflows/maven.yml/badge.svg)](https://github.com/openconcerto/GigaNotePad/actions/workflows/maven.yml)
 
 **GigaNotePad** is an open-source notepad application designed to handle exceptionally large text files, up to 2 gigabytes in size, even if all the text is contained in a single line. 
 This tool is ideal for users who need to work with extensive logs, data dumps, or any large text files that typically exceed the capabilities of standard text editors.
