@@ -34,7 +34,7 @@ public class FindPanel extends JPanel {
     private JButton bFind;
     private TextEditorPanel editor;
     private JLabel labelStatus = new JLabel("");
-    private String lastSearch;
+
     protected List<Long> lastSearchResult;
 
     FindPanel(TextEditorPanel editor, EditorFrame frame) {
@@ -47,7 +47,7 @@ public class FindPanel extends JPanel {
         c.weightx = 0;
         c.insets = new Insets(2, 4, 2, 4);
         c.anchor = GridBagConstraints.EAST;
-        c.fill = GridBagConstraints.BOTH;
+        c.fill = GridBagConstraints.HORIZONTAL;
         // Find label + text (combo with history (16))
         JLabel labelFind = new JLabel("Find", SwingConstants.RIGHT);
         this.add(labelFind, c);
@@ -74,7 +74,9 @@ public class FindPanel extends JPanel {
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
         final JButton closeButton = new JButton("");
+        closeButton.setContentAreaFilled(false);
         closeButton.setBorderPainted(false);
+        closeButton.setMargin(new Insets(0, 1, 0, 1));
         closeButton.setIcon(new ImageIcon(getClass().getResource("close.png")));
         this.add(closeButton, c);
 
@@ -133,7 +135,7 @@ public class FindPanel extends JPanel {
         super.paint(g);
         g.setColor(Color.LIGHT_GRAY);
         g.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
-    };
+    }
 
     @Override
     public void grabFocus() {
@@ -141,83 +143,53 @@ public class FindPanel extends JPanel {
     }
 
     public void doFind() {
-
-        // Lock UI
-        lockUI();
-        // Hightlight
-
         final String text = this.findTextField.getEditor().getItem().toString();
         System.err.println("FindPanel.doFind() " + text);
         long from = FindPanel.this.editor.getCursorGlobalIndex();
-        labelStatus.setText("");
+        this.labelStatus.setText("");
         //
+        if (text.isEmpty()) {
+            this.editor.setHighlights(new ArrayList<>(0));
+            this.findTextField.grabFocus();
+        } else {
+            lockUI();
+            SwingWorker<Long, Long> worker = new SwingWorker<Long, Long>() {
 
-        SwingWorker<Long, Long> worker = new SwingWorker<Long, Long>() {
+                @Override
+                protected Long doInBackground() throws Exception {
+                    final Document doc = FindPanel.this.editor.getDocument();
+                    return doc.findNext(from, text);
+                }
 
-            @Override
-            protected Long doInBackground() throws Exception {
-                final Document doc = FindPanel.this.editor.getDocument();
-                return doc.findNext(from, text);
-            }
+                @Override
+                protected void done() {
+                    try {
+                        Long result = get();
+                        if (result != null) {
+                            System.out.println("FindPanel.doFind().new SwingWorker() {...}.done()" + result);
+                            FindPanel.this.editor.setCursorLocation(result + text.length());
+                            FindPanel.this.editor.getSelection().setRange(result, result + text.length());
+                            FindPanel.this.editor.ensureCursorVisible();
+                            FindPanel.this.editor.fireCursorMoved();
 
-            @Override
-            protected void done() {
-                try {
-                    Long result = get();
-                    if (result != null) {
-                        System.out.println("FindPanel.doFind().new SwingWorker() {...}.done()" + result);
-                        FindPanel.this.editor.setCursorLocation(result + text.length());
-                        FindPanel.this.editor.getSelection().setRange(result, result + text.length());
-                        FindPanel.this.editor.ensureCursorVisible();
-                        FindPanel.this.editor.fireCursorMoved();
-
-                    } else {
-                        FindPanel.this.editor.getSelection().init(FindPanel.this.editor.getCursorGlobalIndex());
-                        labelStatus.setText("Not found");
+                        } else {
+                            FindPanel.this.editor.getSelection().init(FindPanel.this.editor.getCursorGlobalIndex());
+                            FindPanel.this.labelStatus.setText("Not found");
+                        }
+                    } catch (InterruptedException | ExecutionException e) {
+                        e.printStackTrace();
                     }
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
+
+                    // Unlock l'UI
+                    unlockUI();
+
+                    FindPanel.this.editor.updateHighLights(text);
+                    FindPanel.this.findTextField.grabFocus();
                 }
 
-                // Unlock l'UI
-                unlockUI();
-
-                updateHighLights(text);
-                findTextField.grabFocus();
-            }
-
-        };
-        worker.execute();
-
-    }
-
-    public void updateHighLights(final String text) {
-        List<TextLine> lines = this.editor.getVisibleTextLines();
-        List<Highlight> highlights = new ArrayList<>();
-
-        StringBuilder buffer = new StringBuilder();
-        final int size = lines.size();
-        TextLine first = null;
-        for (int i = 0; i < size; i++) {
-            TextLine textLine = lines.get(i);
-            if (first == null) {
-                first = textLine;
-            }
-            buffer.append(textLine.getText());
-            if (textLine.isEndOfLine() || i == size - 1) {
-                // search in text
-                String all = buffer.toString();
-                int index = all.indexOf(text, 0);
-                while (index != -1) {
-                    highlights.add(new Highlight(first.getGlobalIndexOfFirstChar() + index, first.getGlobalIndexOfFirstChar() + index + text.length()));
-                    index = all.indexOf(text, index + text.length());
-                }
-                buffer.setLength(0);
-                first = null;
-            }
+            };
+            worker.execute();
         }
-        this.editor.setHighlights(highlights);
-
     }
 
     public void lockUI() {
@@ -244,7 +216,7 @@ public class FindPanel extends JPanel {
         editorComponent.selectAll();
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
 
             @Override
