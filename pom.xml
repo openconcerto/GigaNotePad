@@ -48,7 +48,7 @@
                       <configuration>
                           <encoding>UTF-8</encoding> 
                           <release>11</release>
-                          <exclude>src/test/**</exclude>     
+                          <exclude>test/**</exclude>     
                       </configuration>
             </plugin>     
             <plugin>
