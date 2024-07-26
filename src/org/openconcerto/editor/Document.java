@@ -4,7 +4,6 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -17,6 +16,7 @@ import java.util.List;
 public class Document {
     // Max 2,147,483,647 lines
     private final List<Line> lines = new ArrayList<>();
+    private long totalLength = -1;
     static final int CHUNK_SIZE = 1 * 1024 * 1024;
 
     public enum LineSeparator {
@@ -49,10 +49,6 @@ public class Document {
         }
 
     }
-
-    // public void loadFrom(File file, Charset charset) throws IOException {
-    // FIXME loadFrom(file, charset, CHUNK_SIZE);
-    // }
 
     public void loadFrom(File file, int skip, Charset charset, int max) throws IOException {
 
@@ -119,6 +115,7 @@ public class Document {
         Line line = new Line(parts, this.lines.size());
         this.lines.add(line);
         System.out.println("Document.loadFrom()" + (System.currentTimeMillis() - tt) + "ms");
+        invalidLength();
     }
 
     public void dump(PrintStream out) {
@@ -180,12 +177,12 @@ public class Document {
             final TextLine l = new TextLine(globalCharIndex, indexOfFirstChar, line, "", true);
             return Arrays.asList(l);
         }
-        final int length = str.length();
-        final List<TextLine> r = new ArrayList<>(1 + length / split);
+        final int strLength = str.length();
+        final List<TextLine> r = new ArrayList<>(1 + strLength / split);
 
         long index = indexOfFirstChar;
         long index2 = globalCharIndex;
-        for (int i = 0; i < length; i += split) {
+        for (int i = 0; i < strLength; i += split) {
             final String subString = str.substring(i, Math.min(str.length(), i + split));
             final TextLine l = new TextLine(index2, index, line, subString, false);
             r.add(l);
@@ -221,11 +218,15 @@ public class Document {
     }
 
     public long length() {
-        long l = 0;
-        for (Line line : this.lines) {
-            l += line.lengthWithEOL();
+        if (this.totalLength < 0) {
+            long l = 0;
+            for (Line line : this.lines) {
+                l += line.lengthWithEOL();
+            }
+            this.totalLength = l;
         }
-        return l;
+        return this.totalLength;
+
     }
 
     public boolean isEmpty() {
@@ -277,9 +278,11 @@ public class Document {
         delete(start, end);
         // insert
         insert(start, text);
+
     }
 
     public void delete(long selectionStart, long selectionEnd) {
+
         int lineCount = this.getLineCount();
         int firstLineIndex = getLineIndexAtCharIndex(selectionStart).getLineIndex();
         Line firstline = getLine(firstLineIndex);
@@ -294,9 +297,6 @@ public class Document {
         firstline.delete(start, end);
 
         toRead -= (end - start);
-        if (toRead <= 0) {
-            // return;
-        }
 
         int linesToRemove = 0;
 
@@ -345,6 +345,12 @@ public class Document {
                 l.setLineIndex(index);
             }
         }
+        invalidLength();
+    }
+
+    private void invalidLength() {
+        this.totalLength = -1;
+
     }
 
     public void insert(long start, String text) {
@@ -368,7 +374,8 @@ public class Document {
                 line.delete(indexInLine, line.length());
             }
             StringBuilder b = new StringBuilder();
-            for (int i = 0; i < text.length(); i++) {
+            final int textLength = text.length();
+            for (int i = 0; i < textLength; i++) {
                 char c = text.charAt(i);
                 if (c == '\n') {
                     line.insert(indexInLine, b.toString());
@@ -398,8 +405,9 @@ public class Document {
             line.insert(line.length(), remainingText);
             line.setEndsWithNewLine(end);
             // Update line index
-            for (int i = firstIndex; i < lines.size(); i++) {
-                lines.get(i).setLineIndex(i);
+            final int lineCount = this.lines.size();
+            for (int i = firstIndex; i < lineCount; i++) {
+                this.lines.get(i).setLineIndex(i);
             }
 
         } else {
@@ -408,6 +416,7 @@ public class Document {
             Line line = getLine(index.getLineIndex());
             line.insert(index.getCharIndexInLine(), text);
         }
+        invalidLength();
     }
 
     public Line getLine(int lineIndex) {
@@ -521,7 +530,7 @@ public class Document {
         return totalLenght;
     }
 
-    public void save(File file, Charset charset, LineSeparator lineSeparator) throws FileNotFoundException, IOException {
+    public void save(File file, Charset charset, LineSeparator lineSeparator) throws IOException {
         if (charset == null) {
             throw new IllegalArgumentException("null charset");
         }
