@@ -11,6 +11,7 @@ import org.openconcerto.editor.Document.LineSeparator;
 
 public class Line {
     private long length = 0;
+    private long lengthWithEOL = 0;
     private int lineIndex;
     private final List<String> parts;
     private boolean carriageReturn;
@@ -23,6 +24,7 @@ public class Line {
             this.length += p.length();
         }
         this.lineIndex = lineIndex;
+        computeLengthWithEOL();
     }
 
     public void dump(PrintStream out) {
@@ -58,13 +60,18 @@ public class Line {
      * @return length
      */
     public long lengthWithEOL() {
+        return this.lengthWithEOL;
+    }
+
+    private void computeLengthWithEOL() {
         if (endsWithNewLine()) {
             if (hasCarriageReturn()) {
-                return this.length + 2;
+                this.lengthWithEOL = this.length + 2;
+            } else {
+                this.lengthWithEOL = this.length + 1;
             }
-            return this.length + 1;
         } else {
-            return this.length;
+            this.lengthWithEOL = this.length;
         }
     }
 
@@ -103,7 +110,7 @@ public class Line {
 
     public void setUseCarriageReturn(boolean b) {
         this.carriageReturn = b;
-
+        computeLengthWithEOL();
     }
 
     public boolean hasCarriageReturn() {
@@ -206,6 +213,7 @@ public class Line {
             s += text;
             this.parts.set(indexOfLast, s);
             this.length += text.length();
+            computeLengthWithEOL();
             return;
         }
 
@@ -222,6 +230,7 @@ public class Line {
                 String newString = before + text + after;
                 this.parts.set(partIndex, newString);
                 this.length += text.length();
+                computeLengthWithEOL();
                 return;
             }
         }
@@ -229,6 +238,7 @@ public class Line {
 
     public void setEndsWithNewLine(boolean b) {
         this.endsWithNewLine = b;
+        computeLengthWithEOL();
     }
 
     public boolean endsWithNewLine() {
@@ -271,6 +281,7 @@ public class Line {
                 // Update current index and length
                 currentIndex += partLength;
                 this.length -= (endIndexInPart - startIndexInPart);
+                computeLengthWithEOL();
             } else {
                 // Move the current index forward
                 currentIndex += partLength;
