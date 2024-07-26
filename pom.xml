@@ -32,6 +32,9 @@
         <resources>
             <resource>
                 <directory>src</directory>
+                <excludes>
+                   <exclude>**/test/*.*</exclude>
+                 </excludes>     
             </resource>
         </resources>
        
@@ -43,7 +46,7 @@
                       <configuration>
                           <encoding>UTF-8</encoding> 
                           <release>11</release>
-                          <exclude>**/test/**</exclude>     
+                          <exclude>**/test/*.*</exclude>     
                       </configuration>
             </plugin>     
            
