@@ -66,8 +66,8 @@ public class TextEditorPanel extends JPanel {
     // Hightligted texts
     private final List<Highlight> highlights = new ArrayList<>();
 
-    // TODO : refaire l'highlight sur toutes les nouvelles TextLine (scroll)
-    List<TextEditorListener> listeners = new ArrayList<>();
+    private final List<TextEditorListener> listeners = new ArrayList<>();
+    private String highLightedText;
 
     TextEditorPanel() {
         this.setBackground(Color.WHITE);
@@ -220,7 +220,14 @@ public class TextEditorPanel extends JPanel {
                 }
             }
         });
+        SwingThrottle tFireCursorModed = new SwingThrottle(60, new Runnable() {
 
+            @Override
+            public void run() {
+                fireCursorMoved();
+                repaint();
+            }
+        });
         this.addMouseMotionListener(new MouseMotionListener() {
 
             @Override
@@ -246,7 +253,8 @@ public class TextEditorPanel extends JPanel {
 
                 setCursorLocation(newLocation);
                 TextEditorPanel.this.blink = 1;
-                fireCursorMoved();
+                tFireCursorModed.execute();
+
                 repaint(0);
 
             }
@@ -257,7 +265,7 @@ public class TextEditorPanel extends JPanel {
             public void componentResized(ComponentEvent e) {
                 if (TextEditorPanel.this.doc != null) {
                     computeVisibleLines(true);
-                    fireViewMoved();
+                    tFireCursorModed.execute();
                 }
                 repaint();
             }
@@ -527,7 +535,7 @@ public class TextEditorPanel extends JPanel {
 
                 }
                 TextEditorPanel.this.blink = 1;
-                fireCursorMoved();
+                tFireCursorModed.execute();
                 repaint();
 
             }
@@ -603,8 +611,6 @@ public class TextEditorPanel extends JPanel {
             max--;
         }
 
-        // System.out.println("TextEditorPanel.ensureCursorVisible() min:" + min + " max:" + max + "
-        // cursor:" + getCursorGlobalIndex());
         if (getCursorGlobalIndex() < min) {
             // Need to scroll Up
             // First visible TextLine must contains cursor index
@@ -726,6 +732,7 @@ public class TextEditorPanel extends JPanel {
             return;
         }
         this.lines.clear();
+        this.highlights.clear();
         if (this.doc == null) {
             return;
         }
@@ -738,6 +745,7 @@ public class TextEditorPanel extends JPanel {
         }
 
         updateCursorTextLine();
+        updateHighLights(this.highLightedText);
 
         this.lastComputedIndex = index;
         this.lastComputedNumberOfVisibleLines = numberOfVisibleLines;
@@ -1252,6 +1260,41 @@ public class TextEditorPanel extends JPanel {
         this.highlights.addAll(highlights);
         Collections.sort(highlights);
         repaint();
+    }
+
+    public void updateHighLights(final String text) {
+        this.highLightedText = text;
+        if (text == null || text.isEmpty()) {
+            setHighlights(new ArrayList<>(0));
+            return;
+        }
+
+        List<TextLine> visibleLines = getVisibleTextLines();
+        List<Highlight> newHighlights = new ArrayList<>();
+
+        StringBuilder buffer = new StringBuilder();
+        final int size = visibleLines.size();
+        TextLine first = null;
+        for (int i = 0; i < size; i++) {
+            TextLine textLine = visibleLines.get(i);
+            if (first == null) {
+                first = textLine;
+            }
+            buffer.append(textLine.getText());
+            if (textLine.isEndOfLine() || i == size - 1) {
+                // search in text
+                String all = buffer.toString();
+                int index = all.indexOf(text, 0);
+                while (index != -1) {
+                    newHighlights.add(new Highlight(first.getGlobalIndexOfFirstChar() + index, first.getGlobalIndexOfFirstChar() + index + text.length()));
+                    index = all.indexOf(text, index + text.length());
+                }
+                buffer.setLength(0);
+                first = null;
+            }
+        }
+        setHighlights(newHighlights);
+
     }
 
     public List<TextLine> getVisibleTextLines() {
